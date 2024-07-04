@@ -1,0 +1,40 @@
+{
+  "page_text": "TEST Marcus Aurelius",
+  "page_blocks": [
+    {
+      "block_text": "[[TEST/Meditations]]",
+      "block_children": [
+        {
+          "block_text": "\"Meditations\" by Marcus Aurelius is a series of personal writings that offer insights into Stoic philosophy and the Roman Emperor's own thoughts on life, duty, and the nature of the universe. "
+        },
+        {
+          "block_text": "These lessons from \"Meditations\" provide timeless wisdom on leading a virtuous and meaningful life. The work remains influential and is often turned to for guidance on personal growth, ethics, and understanding the human condition.",
+          "block_children": [
+            {
+              "block_text": "**Nature and the Universe**: Marcus Aurelius believed in the rational order of the universe. He emphasized accepting things as they come and understanding that everything happens in accordance with nature."
+            },
+            {
+              "block_text": "**Self-Reflection**: The emperor frequently engaged in introspection, examining his own actions, motives, and feelings. He believed in the importance of self-awareness and self-improvement."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "block_text": "[[TEST/Wisdom of Marcus Aurelius]]",
+      "block_children": [
+        {
+          "block_text": "\"Wisdom of Marcus Auraelius\" by [[Marcus Aurelius]]",
+          "block_children": [
+            {
+              "block_text": "Another wisdom quote 1"
+            },
+            {
+              "block_text": "Another wisdom quote 2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

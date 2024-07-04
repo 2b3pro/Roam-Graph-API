@@ -13,6 +13,7 @@ License:      MIT
 import time
 import datetime
 import re
+import json
 from client import initialize_graph, create_block, q
 
 def get_roam_date_format(date):
@@ -161,6 +162,51 @@ class RoamAPI:
 			except Exception as e:
 				logging.error(f"Error processing markdown file: {str(e)}")
 				return False, ""
+
+	def parse_json_block(self, block):
+		block_data = {"string": block["block_text"]}
+		if "block_children" in block:
+			block_data["children"] = [self.parse_json_block(child) for child in block["block_children"]]
+		return block_data
+
+	def import_json_to_page(self, json_data, page_title=None):
+		"""
+		Import JSON data to a Roam page.
+		If page_title is not provided, use the page_text from the JSON data.
+		"""
+		if not page_title:
+			page_title = json_data["page_text"]
+
+		page_uid = self.get_page_uid(page_title)
+
+		if not page_uid:
+			self.create_page(page_title)
+			page_uid = self.get_page_uid(page_title)
+			if not page_uid:
+				raise Exception(f"Failed to create or retrieve page: {page_title}")
+
+		blocks = [self.parse_json_block(block) for block in json_data["page_blocks"]]
+
+		# Create a new parent block with page_text as content and imported blocks as children
+		parent_block = {
+			"string": page_title,
+			"children": blocks
+		}
+
+		success = self.add_nested_blocks(page_uid, [parent_block])
+
+		return success
+
+	def import_json_file_to_page(self, file_path, page_title=None):
+		"""
+		Import JSON file to a Roam page.
+		If page_title is not provided, use the page_text from the JSON data.
+		"""
+		with open(file_path, 'r') as file:
+			json_data = json.load(file)
+
+		return self.import_json_to_page(json_data, page_title)
+
 	def get_page_uid(self, page_title):
 		"""Get the UID of a page by its title."""
 		query = f'[:find ?uid . :where [?e :node/title "{page_title}"] [?e :block/uid ?uid]]'
