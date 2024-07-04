@@ -18,10 +18,15 @@ from client import initialize_graph, create_block, q
 
 def get_roam_date_format(date):
 	"""Convert a date to the format Roam uses for daily pages."""
+	if isinstance(date, str):
+		# If it's already a string, assume it's in the correct format and return it
+		return date
+
 	suffixes = {1: 'st', 2: 'nd', 3: 'rd'}
 	day = date.day
 	suffix = suffixes.get(day % 10, 'th') if day not in [11, 12, 13] else 'th'
 	return date.strftime(f"%B {day}{suffix}, %Y")
+
 
 def parse_markdown(file_path):
 	"""Parse a markdown file into a nested block structure."""
@@ -76,21 +81,13 @@ class RoamAPI:
 			print(f"Error creating page: {str(e)}")
 			return None
 
-	def get_or_create_daily_note(self, date=None):
-		"""Get or create a daily note for the given date (or today if not specified)."""
-		if date is None:
-			date = datetime.datetime.now()
-		date_string = get_roam_date_format(date)
-
-		# Check if the page already exists
+	def get_or_create_daily_note(self, date_string):
 		page_uid = self.get_page_uid(date_string)
-
 		if not page_uid:
-			# If the page doesn't exist, create it
 			self.create_page(date_string)
 			page_uid = self.get_page_uid(date_string)
-
 		return page_uid
+
 
 	def add_block(self, parent_uid, content, order='last'):
 			"""Add a block to a page or another block using its UID."""
