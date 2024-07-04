@@ -1,11 +1,3 @@
-dotenv
-requests
-schema
-google.generativeai
-typing_extensions
-os
-sys
-json
-PyPDF2
-mimetypes
-subprocess
+dotenv==0.0.5
+requests==2.31.0
+schema==0.7.5

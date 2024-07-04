@@ -1,9 +1,67 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Title:        roam_api_utils.py
+Description:  A set of python utilites to interact with Roam Research graphs.
+Author:       Ian Shen
+Email:        2b3pro@gmail.com
+Date:         2024-07-04
+Version:      1.2
+License:      MIT
+"""
+
 import time
+import datetime
+import re
 from client import initialize_graph, create_block, q
+
+def get_roam_date_format(date):
+	"""Convert a date to the format Roam uses for daily pages."""
+	suffixes = {1: 'st', 2: 'nd', 3: 'rd'}
+	day = date.day
+	suffix = suffixes.get(day % 10, 'th') if day not in [11, 12, 13] else 'th'
+	return date.strftime(f"%B {day}{suffix}, %Y")
+
+def parse_markdown(file_path):
+	"""Parse a markdown file into a nested block structure."""
+	with open(file_path, 'r') as file:
+		content = file.read()
+
+	lines = content.split('\n')
+	title = lines[0].strip('# ')
+	blocks = []
+	stack = [(0, blocks)]
+
+	for line in lines[1:]:
+		if line.strip() == '':
+			continue
+
+		match = re.match(r'^(\t*)- (.*)', line)
+		if match:
+			indent = len(match.group(1))
+			content = match.group(2)
+
+			while stack and stack[-1][0] >= indent:
+				stack.pop()
+
+			if not stack:
+				# If stack is empty, reset to root level
+				stack = [(0, blocks)]
+
+			new_block = {'string': content}
+			if stack[-1][0] < indent:
+				parent = stack[-1][1][-1] if stack[-1][1] else {'children': []}
+				parent.setdefault('children', []).append(new_block)
+				stack.append((indent, parent['children']))
+			else:
+				stack[-1][1].append(new_block)
+
+	return title, blocks
 
 class RoamAPI:
 	def __init__(self, graph, token):
 		self.client = initialize_graph({"graph": graph, "token": token})
+
 
 	def create_page(self, title):
 		"""Create a new page with the given title."""
@@ -17,21 +75,92 @@ class RoamAPI:
 			print(f"Error creating page: {str(e)}")
 			return None
 
-	def add_block(self, page_title, content, order=None):
-		"""Add a block to a page. If order is None, it will be added at the end."""
+	def get_or_create_daily_note(self, date=None):
+		"""Get or create a daily note for the given date (or today if not specified)."""
+		if date is None:
+			date = datetime.datetime.now()
+		date_string = get_roam_date_format(date)
+
+		# Check if the page already exists
+		page_uid = self.get_page_uid(date_string)
+
+		if not page_uid:
+			# If the page doesn't exist, create it
+			self.create_page(date_string)
+			page_uid = self.get_page_uid(date_string)
+
+		return page_uid
+
+	def add_block(self, parent_uid, content, order='last'):
+			"""Add a block to a page or another block using its UID."""
+			try:
+				create_block(self.client, {
+					"location": {"parent-uid": parent_uid, "order": order},
+					"block": {"string": content}
+				})
+				return True
+			except Exception as e:
+				print(f"Error adding block: {str(e)}")
+				return False
+
+	def get_last_block_uid(self, parent_uid):
+		"""Get the UID of the last block added to a page or block."""
+		query = f'[:find ?uid . :where [?e :block/uid "{parent_uid}"] [?e :block/children ?c] [?c :block/uid ?uid] (not-join [?c] [?c :block/children _])]'
+		return q(self.client, query)
+
+	def add_nested_blocks(self, parent_uid, blocks, order='last'):
+		"""
+		Add nested blocks to a page or another block.
+
+		:param parent_uid: UID of the parent page or block
+		:param blocks: List of dictionaries, each containing 'string' and optional 'children'
+		:param order: Where to add the blocks ('first', 'last', or a number)
+		:return: Boolean indicating success
+		"""
 		try:
-			location = {"page-title": page_title}
-			if order is not None:
-				location["order"] = order
-			create_block(self.client, {
-				"location": location,
-				"block": {"string": content}
-			})
+			for block in blocks:
+				# Create the main block
+				success = self.add_block(parent_uid, block['string'], order)
+				if not success:
+					return False
+
+				# Get the UID of the newly created block
+				new_block_uid = self.get_last_block_uid(parent_uid)
+
+				# If this block has children, recursively add them
+				if 'children' in block and block['children']:
+					if not self.add_nested_blocks(new_block_uid, block['children']):
+						return False
+
 			return True
 		except Exception as e:
-			print(f"Error adding block: {str(e)}")
+			print(f"Error adding nested blocks: {str(e)}")
 			return False
 
+	def add_markdown_to_roam(self, file_path):
+			"""Process a markdown file and add its content to Roam."""
+			try:
+				title, blocks = parse_markdown(file_path)
+
+				# Create the page
+				self.create_page(title)
+				page_uid = self.get_page_uid(title)
+
+				if not page_uid:
+					logging.error(f"Failed to create or retrieve page: {title}")
+					return False, title
+
+				# Add the blocks
+				success = self.add_nested_blocks(page_uid, blocks)
+
+				if not success:
+					logging.error(f"Failed to add blocks to page: {title}")
+					return False, title
+
+				return True, title
+			except Exception as e:
+				logging.error(f"Error processing markdown file: {str(e)}")
+				return False, ""
 	def get_page_uid(self, page_title):
 		"""Get the UID of a page by its title."""
 		query = f'[:find ?uid . :where [?e :node/title "{page_title}"] [?e :block/uid ?uid]]'
@@ -104,11 +233,29 @@ class RoamAPI:
 		query = f'[:find [?ref_title ...] :where [?e :node/title "{page_title}"] [?ref :block/refs ?e] [?ref_page :block/children ?ref] [?ref_page :node/title ?ref_title]]'
 		return q(self.client, query)
 
-	def create_daily_note(self, date_string=None):
-		"""Create a daily note for the given date (or today if not specified)."""
-		if date_string is None:
-			date_string = time.strftime("%m-%d-%Y")
-		return self.create_page(date_string)
+	def get_page_content(self, page_uid):
+		query = f'''[
+			:find (pull ?e [:node/title {{:block/children [:block/string :block/uid {{:block/children ...}}]}}])
+			:where [?e :block/uid "{page_uid}"]
+		]'''
+		result = q(self.client, query)
+		return result[0][0] if result else None
+
+	def get_or_create_daily_note(self, date=None):
+		"""Get or create a daily note for the given date (or today if not specified)."""
+		if date is None:
+			date = datetime.datetime.now()
+		date_string = get_roam_date_format(date)
+
+		# Check if the page already exists
+		page_uid = self.get_page_uid(date_string)
+
+		if not page_uid:
+			# If the page doesn't exist, create it
+			self.create_page(date_string)
+			page_uid = self.get_page_uid(date_string)
+
+		return page_uid
 
 	def get_graph_structure(self):
 		"""Get a high-level structure of the graph (pages and their immediate children)."""

@@ -1,15 +1,15 @@
-# Roam Research API Utilities
+# Roam Research Graph API Utilities
 
-This README provides instructions and examples for using the `roam_api_utils.py` module to interact with the Roam Research API.
+This package provides utilities for interacting with the Roam Research API.
 
 ## Setup
 
-1. Ensure you have the required dependencies installed:
+1. Install required dependencies:
    ```
    pip install python-dotenv requests
    ```
 
-2. Create a `.env` file in your project directory with your Roam API credentials:
+2. Create a `.env` file in your project directory:
    ```
    ROAM_API_TOKEN=your_api_token_here
    ROAM_GRAPH_NAME=your_graph_name_here
@@ -19,119 +19,65 @@ This README provides instructions and examples for using the `roam_api_utils.py`
 
 ## Usage
 
-First, import the `RoamAPI` class and initialize it with your credentials:
+Import and initialize the `RoamAPI` class:
 
 ```python
-import os
-from dotenv import load_dotenv
 from roam_api_utils import RoamAPI
+from dotenv import load_dotenv
+import os
 
 load_dotenv()
-ROAM_API_TOKEN = os.getenv('ROAM_API_TOKEN')
-ROAM_GRAPH_NAME = os.getenv('ROAM_GRAPH_NAME')
-
-roam = RoamAPI(ROAM_GRAPH_NAME, ROAM_API_TOKEN)
+roam = RoamAPI(os.getenv('ROAM_GRAPH_NAME'), os.getenv('ROAM_API_TOKEN'))
 ```
 
-Now you can use the various methods provided by the `RoamAPI` class.
-
-## Examples
+## Features
 
 ### Creating a Page
 
 ```python
-new_page_title = "My New Page"
-roam.create_page(new_page_title)
+roam.create_page("New Page Title")
 ```
 
-### Adding a Block to a Page
+### Adding a Block
 
 ```python
-roam.add_block("My New Page", "This is a new block")
-roam.add_block("My New Page", "This is another block", order=1)  # Specify order (optional)
+page_uid = roam.get_page_uid("Page Title")
+roam.add_block(page_uid, "Block content", order='last')
 ```
 
-### Getting Page UID
+### Getting or Creating a Daily Note
 
 ```python
-page_uid = roam.get_page_uid("My New Page")
-print(f"Page UID: {page_uid}")
+import datetime
+
+today_uid = roam.get_or_create_daily_note()
+specific_date_uid = roam.get_or_create_daily_note(datetime.datetime(2024, 7, 4))
 ```
 
-### Getting Block UIDs for a Page
+### Processing Markdown Files
 
-```python
-block_uids = roam.get_block_uids("My New Page")
-print(f"Block UIDs: {block_uids}")
+Use `process_markdown.py` to convert a markdown file into a Roam page with nested blocks:
+
+```
+python process_markdown.py input_file.md
 ```
 
-### Getting Block Content
+### Searching the Roam Graph
 
-```python
-for uid in block_uids:
-	content = roam.get_block_content(uid)
-	print(f"Block content: {content}")
+Use `search_roam.py` to search for a page and get results in JSON or Markdown format:
+
 ```
-
-### Updating a Block
-
-```python
-roam.update_block(block_uids[0], "Updated block content")
+python search_roam.py "Marcus Aurelius" --format json
+python search_roam.py "Marcus Aurelius" --format markdown
 ```
-
-### Deleting a Block
-
-```python
-roam.delete_block(block_uids[-1])  # Delete the last block
-```
-
-### Moving a Block
-
-```python
-new_parent_uid = roam.get_page_uid("Another Page")
-roam.move_block(block_uids[0], new_parent_uid, 0)  # Move to the top of Another Page
-```
-
-### Searching Pages
-
-```python
-search_results = roam.search_pages("My New")
-print(f"Pages containing 'My New': {search_results}")
-```
-
-### Getting Page References
-
-```python
-references = roam.get_page_references("My New Page")
-print(f"Pages referencing 'My New Page': {references}")
-```
-
-### Creating a Daily Note
-
-```python
-roam.create_daily_note()  # Creates a note for today
-roam.create_daily_note("05-15-2023")  # Creates a note for a specific date
-```
-
-### Getting Graph Structure
-
-```python
-graph_structure = roam.get_graph_structure()
-print("Graph structure:")
-for page in graph_structure:
-	print(f"Page: {page[':node/title']}")
-	for child in page.get(':block/children', []):
-		print(f"  - {child[':block/string']}")
-```
-
-## Error Handling
-
-Most methods will print an error message and return `None` or `False` if an operation fails. You can add try/except blocks in your code for more detailed error handling.
 
 ## Notes
 
-- Some operations may take a moment to be reflected in the Roam graph. If you're not seeing expected changes immediately, try adding a small delay (e.g., `time.sleep(1)`) after operations.
-- Be cautious when deleting or moving blocks, as these operations can't be easily undone through the API.
-- Always test your scripts on a non-critical graph before running them on your main Roam database.
+- Based on [Roam Research Backend SDKs](https://github.com/Roam-Research/backend-sdks)
+- Some operations may take time to reflect in the Roam graph.
+- Be cautious with delete or move operations, as they can't be easily undone via API.
+- Test scripts on non-critical graphs before using on main databases.
 
-For more detailed information about the Roam Research API, refer to the official Roam Research documentation.
+For more information, refer to the [Roam Research API documentation](https://github.com/Roam-Research/backend-sdks).
+
+README.md generated by Claude 3.5 Sonnet, last updated 2024-07-04 10:50 PT
