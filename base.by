@@ -1,0 +1,8 @@
+from roam_api_utils import RoamAPI
+
+# Initialize the RoamAPI instance
+roam = RoamAPI(ROAM_GRAPH_NAME, ROAM_API_TOKEN)
+
+# Use the utilities
+roam.create_page("My New Page")
+roam.add_block("My New Page", "This is a new block")

@@ -1,0 +1,11 @@
+dotenv
+requests
+schema
+google.generativeai
+typing_extensions
+os
+sys
+json
+PyPDF2
+mimetypes
+subprocess
