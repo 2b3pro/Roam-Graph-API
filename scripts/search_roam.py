@@ -23,15 +23,13 @@ def search_roam(query, output_format='json'):
 	page_uid = roam.get_page_uid(query)
 
 	if not page_uid:
-		print(f"No page found with title: {query}")
-		return
+		return f"No page found with title: {query}"
 
 	# Get page content
 	page_content = roam.get_page_content(page_uid)
 
 	if not page_content:
-		print(f"No content found for page: {query}")
-		return
+		return f"No content found for page: {query}"
 
 	if output_format == 'json':
 		return json.dumps(page_content, indent=2)
@@ -50,13 +48,24 @@ def convert_to_markdown(content, level=0):
 			markdown += convert_to_markdown({':block/children': child[':block/children']}, level + 1)
 	return markdown
 
+def write_to_file(content, filename):
+	with open(filename, 'w', encoding='utf-8') as f:
+		f.write(content)
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Search Roam Research graph and return results.")
 	parser.add_argument("query", help="The page title to search for")
 	parser.add_argument("--format", choices=['json', 'markdown'], default='json', help="Output format (default: json)")
+	parser.add_argument("--output-file", help="Output file path (if not provided, prints to stdout)")
 
 	args = parser.parse_args()
 
 	result = search_roam(args.query, args.format)
 	if result:
-		print(result)
+		if args.output_file:
+			write_to_file(result, args.output_file)
+			print(f"Output written to {args.output_file}")
+		else:
+			print(result)
+	else:
+		print("No results found.")

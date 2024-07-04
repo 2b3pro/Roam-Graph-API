@@ -93,12 +93,23 @@ python parse_json_to_roam.py path/to/your/json_file.json
 
 ### Searching the Roam Graph
 
-Use `search_roam.py` to search for a page and get results in JSON or Markdown format:
+Use `search_roam.py` to search for a page and get results in JSON or Markdown format. You can now specify an output file to save the results.
 
+To print results to stdout:
 ```
 python search_roam.py "Page Title" --format json
 python search_roam.py "Page Title" --format markdown
 ```
+
+To save results to a file:
+```
+python search_roam.py "Page Title" --format json --output-file output.json
+python search_roam.py "Page Title" --format markdown --output-file output.md
+```
+
+Options:
+- `--format`: Choose between 'json' or 'markdown' output (default: json)
+- `--output-file`: Specify a file path to save the output. If not provided, results are printed to stdout.
 
 ## Notes
 
