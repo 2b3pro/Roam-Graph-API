@@ -6,7 +6,7 @@ This package provides utilities for interacting with the Roam Research API.
 
 1. Install required dependencies:
    ```
-   pip install python-dotenv requests
+   pip install dotenv requests
    ```
 
 2. Create a `.env` file in your project directory:
