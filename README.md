@@ -1,6 +1,6 @@
 # Roam Research API Utilities
 
-This package provides utilities for interacting with the Roam Research API.
+This package provides utilities for interacting with the Roam Research graphs via Backends API.
 
 ## Setup
 
@@ -113,7 +113,7 @@ Options:
 
 ## Notes
 
-- Based on [Roam Research Backend SDKs](https://github.com/Roam-Research/backend-sdks)
+- Using [Roam Research's Roam Backend Client](https://github.com/Roam-Research/backend-sdks)
 - Some operations may take time to reflect in the Roam graph.
 - Be cautious with delete or move operations, as they can't be easily undone via API.
 - Test scripts on non-critical graphs before using on main databases.
