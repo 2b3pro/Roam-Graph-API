@@ -1,6 +1,9 @@
 import requests
 import json
 import re
+import logging
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class RoamBackendClient:
     def __init__(self, token, graph):
@@ -52,8 +55,13 @@ def q(client: RoamBackendClient, query: str, args = None):
 def create_block(client: RoamBackendClient, body):
     body['action'] = 'create-block'
     path = '/api/graph/' + client.graph + '/write'
-    resp = client.call(path, 'POST', body)
-    return resp.status_code
+    try:
+        resp = client.call(path, 'POST', body)
+        return resp.status_code
+    except Exception as e:
+        logging.error(f"Error in create_block: {str(e)}")
+        logging.error(f"Request body: {json.dumps(body, indent=2)}")
+        raise
 
 def initialize_graph(inp):
     return RoamBackendClient(inp['token'], inp['graph'])

@@ -31,12 +31,37 @@ roam = RoamAPI(ROAM_GRAPH_NAME, ROAM_API_TOKEN)
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Add a block to a page in Roam Research.")
-	parser.add_argument("blocktext", help="The text content of the block to add.")
-	parser.add_argument("-pg","--page", help="The page (pg) to add the block to. Can be a date (YYYY-MM-DD), a page title, or a page UID. If not provided, defaults to today's daily page.")
-	parser.add_argument("-pb","--parent", help="The text of the parent block (pb) under which to nest the new block. If not found, it will be created.")
-	parser.add_argument("-o","--order", default="last", choices=["first", "last"], help="Where to add the block (default: last)")
+parser = argparse.ArgumentParser(description="Add a block to a page in Roam Research.")
+parser.add_argument("blocktext", help="The text content of the block to add.")
+parser.add_argument("-pg","--page", help="The page to add the block to. Can be a date (YYYY-MM-DD), a page title, or a page UID. If not provided, defaults to today's daily page.")
+parser.add_argument("-pb","--parent", help="The text of the parent block under which to nest the new block. If not found, it will be created.")
+parser.add_argument("-o","--order", default="last", choices=["first", "last"], help="Where to add the block (default: last)")
 
-	args = parser.parse_args()
+args = parser.parse_args()
 
-	roam.add_block_to_page(args.blocktext, args.page, args.parent, args.order)
+# Process the block text
+processed_block_text = process_block_text(args.blocktext)
+block_lines = processed_block_text.split('\n')
+
+# Get or create the page UID
+page_uid = roam.get_or_create_page_uid(args.page)
+if not page_uid:
+	print(f"Error: Could not find or create page: {args.page}")
+	sys.exit(1)
+
+if args.parent:
+	# Find or create the parent block
+	parent_uid = roam.find_or_create_parent_block(page_uid, args.parent)
+	if parent_uid is None:
+		print(f"Error: Could not find or create parent block: {args.parent}")
+		sys.exit(1)
+else:
+	parent_uid = page_uid
+
+# Prepare blocks for batch creation
+blocks = [{"content": line.strip()} for line in block_lines if line.strip()]
+
+# Use batch creation
+roam.batch_create_blocks(parent_uid, blocks)
+
+print(f"Successfully added new block(s) to the page")
