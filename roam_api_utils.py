@@ -37,44 +37,45 @@ def get_roam_date_format(date):
 def parse_markdown(content):
 	lines = content.split('\n')
 	blocks = []
-	current_heading = None
+	stack = [{'level': 0, 'children': blocks}]
 
 	for line in lines:
 		stripped = line.strip()
 		if not stripped:
 			continue
 
+		indent = len(line) - len(line.lstrip())
+
 		if line.startswith('#'):
 			# Handle headings
 			level = len(line.split()[0])
-			current_heading = {'content': stripped[level:].strip(), 'properties': {'heading': level}, 'children': []}
-			blocks.append(current_heading)
+			new_block = {'content': stripped[level:].strip(), 'properties': {'heading': level}, 'children': []}
+			while stack[-1]['level'] >= level:
+				stack.pop()
+			stack[-1]['children'].append(new_block)
+			stack.append({'level': level, 'children': new_block['children']})
 		elif line.startswith('- '):
 			# Handle bullet points
-			content = stripped[2:].strip()  # Remove '- ' and strip again
-			if current_heading:
-				# Nest under the current heading
-				current_heading['children'].append({'content': content, 'properties': {'bullet': True}})
-			else:
-				# Top-level bullet item
-				blocks.append({'content': content, 'properties': {'bullet': True}})
+			content = stripped[2:].strip()
+			new_block = {'content': content, 'properties': {'bullet': True}, 'children': []}
+			while stack[-1]['level'] >= indent:
+				stack.pop()
+			stack[-1]['children'].append(new_block)
+			stack.append({'level': indent, 'children': new_block['children']})
 		elif re.match(r'^\d+\.', stripped):
 			# Handle numbered lists
-			content = re.sub(r'^\d+\.\s*', '', stripped)  # Remove number and dot
-			if current_heading:
-				# Nest under the current heading
-				current_heading['children'].append({'content': content, 'properties': {'numbered': True}})
-			else:
-				# Top-level numbered item
-				blocks.append({'content': content, 'properties': {'numbered': True}})
+			content = re.sub(r'^\d+\.\s*', '', stripped)
+			new_block = {'content': content, 'properties': {'numbered': True}, 'children': []}
+			while stack[-1]['level'] >= indent:
+				stack.pop()
+			stack[-1]['children'].append(new_block)
+			stack.append({'level': indent, 'children': new_block['children']})
 		else:
 			# Regular content
-			if current_heading:
-				# Nest under the current heading
-				current_heading['children'].append({'content': stripped})
-			else:
-				# Top-level content
-				blocks.append({'content': stripped})
+			new_block = {'content': stripped, 'children': []}
+			while stack[-1]['level'] >= indent:
+				stack.pop()
+			stack[-1]['children'].append(new_block)
 
 	return blocks
 
@@ -183,18 +184,19 @@ class RoamAPI:
 	def batch_create_blocks(self, parent_uid, blocks):
 		logging.info(f"Starting batch_create_blocks with {len(blocks)} top-level blocks")
 		for block in blocks:
-			self.create_block_with_children(parent_uid, block)
+			result = self.create_block_with_children(parent_uid, block)
+			if result is None:
+				logging.warning("Failed to create block, pausing import...")
+				time.sleep(60)  # Pause for a minute before continuing
+			else:
+				time.sleep(2)  # Add a 2-second delay between top-level blocks
 
 	def _make_api_call(self, func, *args, **kwargs):
-		current_time = time.time()
-		time_since_last_request = current_time - self.__last_request_time
-
-		if time_since_last_request < self.__min_request_interval:
-			time.sleep(self.__min_request_interval - time_since_last_request)
-
 		max_retries = 10
-		initial_delay = 30
-		retry_interval = 5
+		initial_delay = 60  # Increased from 30 to 60 seconds
+		max_delay = 300  # Maximum delay of 5 minutes
+		consecutive_rate_limits = 0
+		max_consecutive_rate_limits = 5
 
 		for attempt in range(max_retries):
 			try:
@@ -204,8 +206,13 @@ class RoamAPI:
 				return result
 			except Exception as e:
 				if "Error (HTTP 503)" in str(e):
-					delay = initial_delay if attempt == 0 else retry_interval
-					logging.warning(f"Rate limit hit. Retrying in {delay} seconds...")
+					consecutive_rate_limits += 1
+					if consecutive_rate_limits > max_consecutive_rate_limits:
+						logging.error(f"Hit rate limit {max_consecutive_rate_limits} times in a row. Aborting.")
+						return None
+
+					delay = min(initial_delay * (2 ** attempt) + random.uniform(0, 10), max_delay)
+					logging.warning(f"Rate limit hit. Waiting for {delay:.2f} seconds before retrying...")
 					time.sleep(delay)
 				else:
 					logging.error(f"Error in API call: {str(e)}")
