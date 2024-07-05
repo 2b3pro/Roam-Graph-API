@@ -37,7 +37,7 @@ def get_roam_date_format(date):
 def parse_markdown(content):
 	lines = content.split('\n')
 	blocks = []
-	current_block = None
+	current_heading = None
 
 	for line in lines:
 		stripped = line.strip()
@@ -47,18 +47,34 @@ def parse_markdown(content):
 		if line.startswith('#'):
 			# Handle headings
 			level = len(line.split()[0])
-			current_block = {'content': stripped[level:].strip(), 'properties': {'heading': level}}
-			blocks.append(current_block)
-		elif re.match(r'^\d+\.', stripped):
-			# Handle numbered list items
-			blocks.append({'content': stripped, 'properties': {'numbered': True}})
+			current_heading = {'content': stripped[level:].strip(), 'properties': {'heading': level}, 'children': []}
+			blocks.append(current_heading)
 		elif line.startswith('- '):
 			# Handle bullet points
-			bullet = {'content': stripped[2:], 'properties': {'bullet': True}}
-			blocks.append(bullet)
+			content = stripped[2:].strip()  # Remove '- ' and strip again
+			if current_heading:
+				# Nest under the current heading
+				current_heading['children'].append({'content': content, 'properties': {'bullet': True}})
+			else:
+				# Top-level bullet item
+				blocks.append({'content': content, 'properties': {'bullet': True}})
+		elif re.match(r'^\d+\.', stripped):
+			# Handle numbered lists
+			content = re.sub(r'^\d+\.\s*', '', stripped)  # Remove number and dot
+			if current_heading:
+				# Nest under the current heading
+				current_heading['children'].append({'content': content, 'properties': {'numbered': True}})
+			else:
+				# Top-level numbered item
+				blocks.append({'content': content, 'properties': {'numbered': True}})
 		else:
 			# Regular content
-			blocks.append({'content': stripped})
+			if current_heading:
+				# Nest under the current heading
+				current_heading['children'].append({'content': stripped})
+			else:
+				# Top-level content
+				blocks.append({'content': stripped})
 
 	return blocks
 
@@ -135,28 +151,39 @@ class RoamAPI:
 			self.__uid_cache[page] = uid
 		return uid
 
+	def create_block_with_children(self, parent_uid, block):
+		content = block.get('content', '')
+		logging.debug(f"Processing block: {block}")
+		if isinstance(content, str) and content.strip():
+			block_data = {
+				"location": {"parent-uid": parent_uid, "order": "last"},
+				"block": {"string": content.strip()}
+			}
+			properties = block.get('properties', {})
+			if properties:
+				block_data["block"].update(properties)
+
+			logging.debug(f"Block data: {json.dumps(block_data, indent=2)}")
+
+			result = self._make_api_call(create_block, self.client, block_data)
+			if result is None:
+				logging.error(f"Failed to create block: {content[:50]}...")
+				return
+
+			new_block_uid = self.get_last_block_uid(parent_uid)
+			if new_block_uid:
+				# Create child blocks
+				for child in block.get('children', []):
+					self.create_block_with_children(new_block_uid, child)
+
+			time.sleep(self.__min_request_interval)
+		else:
+			logging.warning(f"Skipping invalid block: {block}")
+
 	def batch_create_blocks(self, parent_uid, blocks):
-		logging.info(f"Starting batch_create_blocks with {len(blocks)} blocks")
+		logging.info(f"Starting batch_create_blocks with {len(blocks)} top-level blocks")
 		for block in blocks:
-			content = block.get('content', '')
-			logging.debug(f"Processing block: {block}")
-			if isinstance(content, str) and content.strip():
-				block_data = {
-					"location": {"parent-uid": parent_uid, "order": "last"},
-					"block": {"string": content.strip()}
-				}
-				properties = block.get('properties', {})
-				if properties:
-					block_data["block"].update(properties)
-
-				logging.debug(f"Block data: {json.dumps(block_data, indent=2)}")
-
-				result = self._make_api_call(create_block, self.client, block_data)
-				if result is None:
-					logging.error(f"Failed to create block: {content[:50]}...")
-				time.sleep(self.__min_request_interval)
-			else:
-				logging.warning(f"Skipping invalid block: {block}")
+			self.create_block_with_children(parent_uid, block)
 
 	def _make_api_call(self, func, *args, **kwargs):
 		current_time = time.time()
