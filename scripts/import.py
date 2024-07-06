@@ -103,8 +103,6 @@ def import_json_file(file_path):
 	except Exception as e:
 		print(f"Error importing JSON file: {e}")
 
-def remove_blank_lines(content):
-	return '\n'.join(line for line in content.splitlines() if line.strip())
 
 def import_markdown_file(file_path):
 	try:
