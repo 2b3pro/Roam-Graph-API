@@ -1,8 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-roam_utils.py - Utility functions for Roam Research API scripts
+Title:        roam_utils.py
+Description:  Utility functions for Roam Research API scripts
+Author:       Ian Shen
+Email:        2b3pro@gmail.com
+Date:         2024-07-6
+Version:      2.0
+License:      MIT
 """
 
 from datetime import datetime
+import re
 
 def get_roam_date_format(date):
     """
@@ -40,4 +48,33 @@ def is_valid_date_string(date_string):
     except ValueError:
         return False
 
-# Add more utility functions as needed
+def process_block_text(block_text):
+    """
+    Cleans up text for import into Roam:
+        - Strips any trailing whitespaces
+        - Convert to Roam Research-flavored markdown for italics, highlights.
+        - Replaces TODO/DONE codes
+        - Replace literal '\n' with actual newline characters
+    """
+
+    block_text = block_text.strip()
+
+    # Convert to Roam italics markdown and replace TODO/DONE codes
+    patterns_replacements = [
+        (r'\*(.*?)\*', r'__\1__'),
+        (r'\[ ?\]', r'{{[[TODO]]}}'),
+        (r'\[x\]', r'{{[[DONE]]}}')
+    ]
+
+    for pattern, replacement in patterns_replacements:
+        block_text = re.sub(pattern, replacement, block_text)
+
+    # Replace ~~ with ^^
+        block_text = block_text.replace('~~', '^^')
+
+    # Replace literal '\n' with actual newline characters
+    block_text = block_text.replace('\\n', '\n')
+
+    return block_text
+
+

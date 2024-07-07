@@ -1,9 +1,28 @@
 """
 Title: Roam Research Backend Client SDK
-Description:
+Description: Revised
 Author: Roam Research
-Modified by: Ian Shen
-Version: 1.1.0
+Modified by: Ian Shen, Assistant
+Version: 1.2.0
+"""
+
+# Roam URL format: https://roamresearch.com/#/app/{roam_graph_name}/page/{page_uid}
+""" Structure of "body"
+{
+    'action': 'create-block',  # Optional, but always 'create-block' if present
+    'location': {
+        'parent-uid': str,  # UID of the parent block or page
+        'order': int or str  # Position of the new block
+    },
+    'block': {
+        'string': str,  # The content of the block
+        'uid': str,  # Optional
+        'open': bool,  # Optional
+        'heading': int,  # Optional
+        'text-align': bool,  # Optional
+        'children-view-type': str  # Optional
+    }
+}
 """
 
 import requests
@@ -48,7 +67,7 @@ class RoamBackendClient:
                 503: "Graph not ready, please retry in a few seconds"
             }
             error_message = error_messages.get(resp.status_code, f'Unexpected error: {resp.status_code}')
-            raise Exception(f'Error (HTTP {resp.status_code}): {error_message}')
+            raise Exception(f'Error (HTTP {resp.status_code}): {error_message}. Response: {resp.text}')
 
         return resp
 
@@ -84,8 +103,13 @@ roam_create_block = Schema({Optional('action'): And(str, lambda s: s=='create-bl
 def create_block(client: RoamBackendClient, body):
     body['action'] = 'create-block'
     path = '/api/graph/' + client.graph + '/write'
-    resp = client.call(path, 'POST', roam_create_block.validate(body))
-    return resp.status_code
+    try:
+        validated_body = roam_create_block.validate(body)
+    except Exception as e:
+        return 400, f"Schema validation failed: {str(e)}"
+
+    resp = client.call(path, 'POST', validated_body)
+    return resp.status_code, resp.text
 
 roam_move_block = Schema({Optional('action'): And(str, lambda s: s=='move-block'), 'location': roam_block_location, 'block': {'uid': str}})
 
