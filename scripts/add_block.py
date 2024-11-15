@@ -91,7 +91,7 @@ def add_blocks(client, parent_uid, block_texts, order):
             'location': {'parent-uid': parent_uid, 'order': 0 if order == 'first' else -1},
             'block': {'string': block_text.strip()}
         }
-        create_block_status, _ = create_block(client, create_block_body)
+        create_block_status = create_block(client, create_block_body)
         if create_block_status == 200:
             success_count += 1
             logging.info(f"Successfully added block: {block_text}")
