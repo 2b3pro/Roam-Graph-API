@@ -161,3 +161,22 @@ cython_debug/
 .DS_Store
 test/.env 9.31.22 AM
 test/.env 9.31.34 AM
+sample-input2.md
+sample-json-tmp.md
+sample-json.json
+sample-md.md
+prompts/default.txt
+scripts/get_page.py
+scripts/helloworld.py
+scripts/import.py
+scripts/link_dt-roam.py
+scripts/markdown-to-roam-converter.py
+scripts/roamtable-to-markdown.py
+scripts/run_add_block_roam.sh
+scripts/testbatch.py
+sample-json.json
+sample-md.md
+scripts/get_page.py
+scripts/helloworld.py
+scripts/import.py
+scripts/link_dt-roam.py
