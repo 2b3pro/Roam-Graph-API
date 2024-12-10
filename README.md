@@ -2,6 +2,8 @@
 
 RoamBackendClient is a Python client for interacting with the Roam Research API. It provides a comprehensive interface for performing operations such as creating pages, managing blocks, querying data, and converting between Roam and standard markdown formats in your Roam Research graph.
 
+An abstraction of the underlying backend SDK provided by [Roam-Research](https://roamresearch.com) [backendSDKs-Python](https://github.com/Roam-Research/backend-sdks).
+
 ## Features
 
 - Page Management
