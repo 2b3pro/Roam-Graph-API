@@ -1,6 +1,6 @@
-# RoamBackendClient
+# Roam-Graph-API
 
-RoamBackendClient is a Python client for interacting with the Roam Research API. It provides a comprehensive interface for performing operations such as creating pages, managing blocks, querying data, and converting between Roam and standard markdown formats in your Roam Research graph.
+Roam Graph API is a Python client for interacting with the Roam Research API. It provides a comprehensive interface for performing operations such as creating pages, managing blocks, querying data, and converting between Roam and standard markdown formats in your Roam Research graph.
 
 An abstraction of the underlying backend SDK provided by [Roam-Research](https://roamresearch.com) [backendSDKs-Python](https://github.com/Roam-Research/backend-sdks).
 
@@ -48,8 +48,8 @@ For detailed information about utility functions and format conversions, see [sc
 1. Clone this repository:
 
    ```
-   git clone https://github.com/yourusername/roam-backend-client.git
-   cd roam-backend-client
+   git clone https://github.com/2b3pro/Roam-Graph-API.git
+   cd Roam-Graph-API
    ```
 
 2. Install the required dependencies:
