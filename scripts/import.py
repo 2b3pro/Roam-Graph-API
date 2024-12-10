@@ -26,7 +26,7 @@ logging.basicConfig(
 # Add the parent directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from roam_api_utils import RoamAPI
+from scripts.roamresearch import RoamAPI
 
 # Load environment variables from the parent directory
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')

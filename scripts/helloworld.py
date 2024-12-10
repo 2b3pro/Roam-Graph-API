@@ -9,7 +9,7 @@ import os
 import logging
 import sys
 from dotenv import load_dotenv
-from client import initialize_graph, create_page, create_block, q
+from roamClient import initialize_graph, create_page, create_block, q
 
 # Load environment variables
 load_dotenv()
