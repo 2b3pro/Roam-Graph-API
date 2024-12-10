@@ -180,3 +180,4 @@ scripts/get_page.py
 scripts/helloworld.py
 scripts/import.py
 scripts/link_dt-roam.py
+misc-claude/*
