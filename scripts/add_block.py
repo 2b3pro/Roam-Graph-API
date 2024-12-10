@@ -36,15 +36,15 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from roamClient import initialize_graph, create_page, create_block, q
-from roam_utils import get_roam_date_format, is_valid_date_string
+from roam_utils import get_roam_date_format, is_valid_date_string, extract_uid
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s at Line %(lineno)d')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s at Line %(lineno)d')
 
 # Load environment variables from the parent directory
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 load_dotenv(dotenv_path)
 
-def get_or_create_page_uid(client, page_title):
+def get_or_create_page_uid_from_title(client, page_title):
     query = f'[:find ?uid . :where [?e :node/title "{page_title}"] [?e :block/uid ?uid]]'
     page_uid = q(client, query)
 
@@ -103,7 +103,7 @@ def add_blocks(client, parent_uid, block_texts, order):
 def main():
     parser = argparse.ArgumentParser(description="Add one or more blocks to a page in Roam Research.")
     parser.add_argument("blocktext", help="The text content of the block(s) to add. For multiple blocks, separate with '\\n'.")
-    parser.add_argument("-pg", "--page", help="The page to add the block(s) to. Can be a date (YYYY-MM-DD), a page title, or a page UID. If not provided, defaults to today's daily page.")
+    parser.add_argument("-pg", "--page", help="The page to add the block(s) to. Can be a date (YYYY-MM-DD), a page title, or a page UID. If not provided, defaults to today's daily page.", default=datetime.now().strftime("%Y-%m-%d"))
     parser.add_argument("-pb", "--parent", help="The text of the parent block under which to nest the new block(s). If not found, it will be created.")
     parser.add_argument("-o", "--order", default="last", choices=["first", "last"], help="Where to add the block(s) (default: last)")
 
@@ -113,18 +113,21 @@ def main():
     client = initialize_graph({'token': os.getenv('ROAM_API_TOKEN'), 'graph': os.getenv('ROAM_GRAPH_NAME')})
 
     # Process the page argument
-    if not args.page:
-        args.page = datetime.now().strftime("%Y-%m-%d")
+    # if not args.page:
+    #     args.page = datetime.now().strftime("%Y-%m-%d")
 
     # Convert the page to Roam's date format if it's a valid date string
     if is_valid_date_string(args.page):
         args.page = get_roam_date_format(datetime.strptime(args.page, "%Y-%m-%d").date())
 
     # Get or create the page UID
-    page_uid = get_or_create_page_uid(client, args.page)
-    if not page_uid:
-        logging.error(f"Could not find or create page: {args.page}")
-        sys.exit(1)
+    page_uid = extract_uid(args.page)
+
+    if page_uid == None:
+        page_uid = get_or_create_page_uid_from_title(client, args.page)
+        if not page_uid:
+            logging.error(f"Could not find or create page: {args.page}")
+            sys.exit(1)
 
     if args.parent:
         # Find or create the parent block

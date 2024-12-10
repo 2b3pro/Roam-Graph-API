@@ -1,17 +1,50 @@
 # RoamBackendClient
 
-RoamBackendClient is a Python client for interacting with the Roam Research API. It provides a simple interface for performing operations such as creating pages, adding blocks, and querying data in your Roam Research graph.
+RoamBackendClient is a Python client for interacting with the Roam Research API. It provides a comprehensive interface for performing operations such as creating pages, managing blocks, querying data, and converting between Roam and standard markdown formats in your Roam Research graph.
 
 ## Features
 
-- Create new pages in your Roam Research graph
-- Add blocks to existing pages
-- Query data using Roam's query language
-- Error handling and logging
+- Page Management
+
+  - Create new pages with titles and content
+  - Get page UIDs and content
+  - Search pages by title or content
+  - Get page references and backlinks
+  - Import markdown files with YAML frontmatter
+
+- Block Operations
+
+  - Add blocks with rich text formatting
+  - Create nested block structures
+  - Batch create multiple blocks
+  - Find and manage block UIDs
+  - Process block content with TODO/DONE status
+
+- Query Capabilities
+
+  - Execute Datalog queries
+  - Search across the graph
+  - Get graph structure
+  - Find common references between pages
+
+- Date Handling
+
+  - Support for daily notes
+  - Date format conversion
+  - Date range operations
+
+- Format Conversion
+  - Convert between Roam and standard markdown
+  - Table format conversion
+  - Text formatting conversion
+  - Support for YAML frontmatter
+
+For detailed information about utility functions and format conversions, see [scripts/README.md](scripts/README.md).
 
 ## Installation
 
 1. Clone this repository:
+
    ```
    git clone https://github.com/yourusername/roam-backend-client.git
    cd roam-backend-client
@@ -32,56 +65,62 @@ RoamBackendClient is a Python client for interacting with the Roam Research API.
    ROAM_GRAPH_NAME=your_graph_name_here
    ```
 
-2. Import and initialize the client:
+2. Basic Usage:
 
    ```python
-   from client import initialize_graph, create_page, create_block, q
+   from scripts.roamresearch import RoamAPI
 
-   client = initialize_graph({'token': 'your_api_token', 'graph': 'your_graph_name'})
+   # Initialize the client
+   roam = RoamAPI(ROAM_GRAPH_NAME, ROAM_API_TOKEN)
+
+   # Create a page
+   roam.create_page("My New Page")
+
+   # Add blocks to a page
+   roam.add_block_to_page("This is a test block", "My New Page")
+   roam.add_block_to_page("This is a nested block", "My New Page", "This is a test block")
    ```
 
-3. Create a new page:
+3. Working with Daily Notes:
 
    ```python
-   create_page_body = {
-       'action': 'create-page',
-       'page': {
-           'title': 'My New Page'
-       }
-   }
-   create_page_status = create_page(client, create_page_body)
+   # Get or create today's daily note
+   today_uid = roam.get_or_create_daily_note()
+
+   # Add content to today's note
+   roam.add_block_to_page("Meeting notes for today", today_uid)
    ```
 
-4. Add a block to a page:
+4. Importing Markdown:
 
    ```python
-   create_block_body = {
-       'action': 'create-block',
-       'location': {'parent-uid': 'page_uid', 'order': 0},
-       'block': {'string': 'Block content'}
-   }
-   create_block_status = create_block(client, create_block_body)
+   # Import a markdown file with YAML frontmatter
+   success, message = roam.import_markdown_file("path/to/markdown.md")
    ```
 
-5. Query data:
+5. Searching and Querying:
 
    ```python
-   query = '[:find ?uid . :where [?e :node/title "My New Page"] [?e :block/uid ?uid]]'
-   result = q(client, query)
+   # Search for pages
+   results = roam.search_pages("search term")
+
+   # Get page references
+   refs = roam.get_page_references("Page Title")
+
+   # Get page content
+   content = roam.get_page("Page Title", prefix="", output_format="markdown")
    ```
-
-## Example
-
-Check out the `helloworld.py` script for a complete example of how to use the RoamBackendClient to create a page and add a block.
 
 ## Error Handling
 
-The client includes basic error handling and logging. You can adjust the logging level in your scripts:
+The client includes comprehensive error handling and logging. You can adjust the logging level in your scripts:
 
 ```python
 import logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(levelname)s - %(message)s at Line %(lineno)d')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s - [%(filename)s:%(lineno)d]'
+)
 ```
 
 ## Contributing

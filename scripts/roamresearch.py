@@ -15,87 +15,14 @@ import datetime
 import re
 import json
 import yaml
-from client import initialize_graph, create_block, q
+from roam_backend import initialize_graph, create_block, q
 import logging
+import random
 
 # Set up logging at the beginning of your script
 logging.basicConfig(
-	level=logging.DEBUG,
+	level=logging.ERROR,
 	format='%(asctime)s - %(levelname)s - %(message)s - [%(filename)s:%(lineno)d]')
-
-def get_roam_date_format(date):
-	"""Convert a date to the format Roam uses for daily pages."""
-	if isinstance(date, str):
-		# If it's already a string, assume it's in the correct format and return it
-		return date
-
-	suffixes = {1: 'st', 2: 'nd', 3: 'rd'}
-	day = date.day
-	suffix = suffixes.get(day % 10, 'th') if day not in [11, 12, 13] else 'th'
-	return date.strftime(f"%B {day}{suffix}, %Y")
-
-def parse_markdown(content):
-	lines = content.split('\n')
-	blocks = []
-	stack = [{'level': 0, 'children': blocks}]
-
-	for line in lines:
-		stripped = line.strip()
-		if not stripped:
-			continue
-
-		indent = len(line) - len(line.lstrip())
-
-		if line.startswith('#'):
-			# Handle headings
-			level = len(line.split()[0])
-			new_block = {'content': stripped[level:].strip(), 'properties': {'heading': level}, 'children': []}
-			while stack[-1]['level'] >= level:
-				stack.pop()
-			stack[-1]['children'].append(new_block)
-			stack.append({'level': level, 'children': new_block['children']})
-		elif line.startswith('- '):
-			# Handle bullet points
-			content = stripped[2:].strip()
-			new_block = {'content': content, 'properties': {'bullet': True}, 'children': []}
-			while stack[-1]['level'] >= indent:
-				stack.pop()
-			stack[-1]['children'].append(new_block)
-			stack.append({'level': indent, 'children': new_block['children']})
-		elif re.match(r'^\d+\.', stripped):
-			# Handle numbered lists
-			content = re.sub(r'^\d+\.\s*', '', stripped)
-			new_block = {'content': content, 'properties': {'numbered': True}, 'children': []}
-			while stack[-1]['level'] >= indent:
-				stack.pop()
-			stack[-1]['children'].append(new_block)
-			stack.append({'level': indent, 'children': new_block['children']})
-		else:
-			# Regular content
-			new_block = {'content': stripped, 'children': []}
-			while stack[-1]['level'] >= indent:
-				stack.pop()
-			stack[-1]['children'].append(new_block)
-
-	return blocks
-
-def process_block_text(block_text):
-	# Replace literal '\n' with actual newline characters
-	block_text = block_text.replace('\\n', '\n')
-
-	lines = block_text.split('\n')
-	processed_lines = []
-
-	# Replaces TODO/DONE codes
-	for line in lines:
-		if line.strip().startswith("[]"):
-			processed_lines.append(line.replace("[]", "{{[[TODO]]}}"))
-		elif line.strip().startswith("[x]"):
-			processed_lines.append(line.replace("[x]", "{{[[DONE]]}}"))
-		else:
-			processed_lines.append(line)
-
-	return '\n'.join(processed_lines)
 
 class RoamAPI:
 	def __init__(self, graph, token):
@@ -103,6 +30,82 @@ class RoamAPI:
 		self.__uid_cache = {}
 		self.__last_request_time = 0
 		self.__min_request_interval = 0.1  # 100ms between requests
+
+	def get_roam_date_format(self, date):
+		"""Convert a date to the format Roam uses for daily pages."""
+		if isinstance(date, str):
+			# If it's already a string, assume it's in the correct format and return it
+			return date
+
+		suffixes = {1: 'st', 2: 'nd', 3: 'rd'}
+		day = date.day
+		suffix = suffixes.get(day % 10, 'th') if day not in [11, 12, 13] else 'th'
+		return date.strftime(f"%B {day}{suffix}, %Y")
+
+	def process_block_text(self, block_text):
+		# Replace literal '\n' with actual newline characters
+		block_text = block_text.replace('\\n', '\n')
+
+		lines = block_text.split('\n')
+		processed_lines = []
+
+		# Replaces TODO/DONE codes
+		for line in lines:
+			if line.strip().startswith("[]"):
+				processed_lines.append(line.replace("[]", "{{[[TODO]]}}"))
+			elif line.strip().startswith("[x]"):
+				processed_lines.append(line.replace("[x]", "{{[[DONE]]}}"))
+			else:
+				processed_lines.append(line)
+
+		return '\n'.join(processed_lines)
+
+	def parse_markdown(self, content):
+		content = '\n'.join(line for line in content.splitlines() if line.strip())
+		lines = content.split('\n')
+		blocks = []
+		stack = [{'level': 0, 'children': blocks}]
+
+		for line in lines:
+
+			stripped = line.strip()
+			if not stripped:
+				continue
+
+			indent = len(line) - len(line.lstrip())
+
+			if line.startswith('#'):
+				# Handle headings
+				level = len(line.split()[0])
+				new_block = {'content': stripped[level:].strip(), 'properties': {'heading': level}, 'children': []}
+				while stack[-1]['level'] >= level:
+					stack.pop()
+				stack[-1]['children'].append(new_block)
+				stack.append({'level': level, 'children': new_block['children']})
+			elif line.startswith('- '):
+				# Handle bullet points
+				content = stripped[2:].strip()
+				new_block = {'content': content, 'properties': {'bullet': True}, 'children': []}
+				while stack[-1]['level'] >= indent:
+					stack.pop()
+				stack[-1]['children'].append(new_block)
+				stack.append({'level': indent, 'children': new_block['children']})
+			elif re.match(r'^\d+\.', stripped):
+				# Handle numbered lists
+				content = re.sub(r'^\d+\.\s*', '', stripped)
+				new_block = {'content': content, 'properties': {'numbered': True}, 'children': []}
+				while stack[-1]['level'] >= indent:
+					stack.pop()
+				stack[-1]['children'].append(new_block)
+				stack.append({'level': indent, 'children': new_block['children']})
+			else:
+				# Regular content
+				new_block = {'content': stripped, 'children': []}
+				while stack[-1]['level'] >= indent:
+					stack.pop()
+				stack[-1]['children'].append(new_block)
+
+		return blocks
 
 
 	# Page-Related Definitions ----------------------------------------
@@ -112,7 +115,7 @@ class RoamAPI:
 		try:
 			create_block(self.client, {
 				"location": {"page-title": title, "order": 0},
-				"block": {"string": title}
+				"block": {"string": "[[Log/DevonThink]]"}
 			})
 			return title
 		except Exception as e:
@@ -126,13 +129,13 @@ class RoamAPI:
 		if page is None or page == "":
 			# Default to today's daily page
 			today = datetime.datetime.now()
-			page_title = get_roam_date_format(today)
+			page_title = self.get_roam_date_format(today)
 			uid = self.get_or_create_daily_note(page_title)
 		elif re.match(r'^\d{4}-\d{2}-\d{2}$', page):
 			# It's a date in YYYY-MM-DD format
 			try:
 				date_obj = datetime.datetime.strptime(page, "%Y-%m-%d")
-				page_title = get_roam_date_format(date_obj)
+				page_title = self.get_roam_date_format(date_obj)
 				uid = self.get_or_create_daily_note(page_title)
 			except ValueError:
 				print("Error: Invalid date format. Please use YYYY-MM-DD.")
@@ -152,81 +155,11 @@ class RoamAPI:
 			self.__uid_cache[page] = uid
 		return uid
 
-	def create_block_with_children(self, parent_uid, block):
-		content = block.get('content', '')
-		logging.debug(f"Processing block: {block}")
-		if isinstance(content, str) and content.strip():
-			block_data = {
-				"location": {"parent-uid": parent_uid, "order": "last"},
-				"block": {"string": content.strip()}
-			}
-			properties = block.get('properties', {})
-			if properties:
-				block_data["block"].update(properties)
-
-			logging.debug(f"Block data: {json.dumps(block_data, indent=2)}")
-
-			result = self._make_api_call(create_block, self.client, block_data)
-			if result is None:
-				logging.error(f"Failed to create block: {content[:50]}...")
-				return
-
-			new_block_uid = self.get_last_block_uid(parent_uid)
-			if new_block_uid:
-				# Create child blocks
-				for child in block.get('children', []):
-					self.create_block_with_children(new_block_uid, child)
-
-			time.sleep(self.__min_request_interval)
-		else:
-			logging.warning(f"Skipping invalid block: {block}")
-
-	def batch_create_blocks(self, parent_uid, blocks):
-		logging.info(f"Starting batch_create_blocks with {len(blocks)} top-level blocks")
-		for block in blocks:
-			result = self.create_block_with_children(parent_uid, block)
-			if result is None:
-				logging.warning("Failed to create block, pausing import...")
-				time.sleep(60)  # Pause for a minute before continuing
-			else:
-				time.sleep(2)  # Add a 2-second delay between top-level blocks
-
-	def _make_api_call(self, func, *args, **kwargs):
-		max_retries = 10
-		initial_delay = 60  # Increased from 30 to 60 seconds
-		max_delay = 300  # Maximum delay of 5 minutes
-		consecutive_rate_limits = 0
-		max_consecutive_rate_limits = 5
-
-		for attempt in range(max_retries):
-			try:
-				result = func(*args, **kwargs)
-				self.__last_request_time = time.time()
-				logging.debug(f"Successful API call: {func.__name__}")
-				return result
-			except Exception as e:
-				if "Error (HTTP 503)" in str(e):
-					consecutive_rate_limits += 1
-					if consecutive_rate_limits > max_consecutive_rate_limits:
-						logging.error(f"Hit rate limit {max_consecutive_rate_limits} times in a row. Aborting.")
-						return None
-
-					delay = min(initial_delay * (2 ** attempt) + random.uniform(0, 10), max_delay)
-					logging.warning(f"Rate limit hit. Waiting for {delay:.2f} seconds before retrying...")
-					time.sleep(delay)
-				else:
-					logging.error(f"Error in API call: {str(e)}")
-					logging.error(f"Function: {func.__name__}, Args: {args}, Kwargs: {kwargs}")
-					return None
-
-		logging.error("Max retries reached. Failed to make API call.")
-		return None
-
 	def get_or_create_daily_note(self, date=None):
 		"""Get or create a daily note for the given date (or today if not specified)."""
 		if date is None:
 			date = datetime.datetime.now()
-		date_string = get_roam_date_format(date)
+		date_string = self.get_roam_date_format(date)
 
 		# Check if the page already exists
 		page_uid = self.get_page_uid(date_string)
@@ -256,6 +189,11 @@ class RoamAPI:
 		result = q(self.client, query)
 		return result[0][0] if result else None
 
+	def get_page_uid(self, page_title):
+		"""Get the UID of a page by its title."""
+		query = f'[:find ?uid . :where [?e :node/title "{page_title}"] [?e :block/uid ?uid]]'
+		return q(self.client, query)
+
 	# Block-related Definitions --------------------------------------
 
 	def _add_blocks(self, parent_uid, blocks):
@@ -268,7 +206,7 @@ class RoamAPI:
 			if last_heading_uid and re.match(r'^\d+\.', content):
 				parent_uid = last_heading_uid  # Indent under the last heading
 
-			new_block_uid = self.add_block(parent_uid, content, **properties)
+			new_block_uid = self.add_block_with_retry(parent_uid, content, **properties)
 
 			if new_block_uid:
 				if 'heading' in properties:
@@ -318,8 +256,8 @@ class RoamAPI:
 			return
 
 		# Process the block text
-		processed_block_text = process_block_text(block_text)
-		block_lines = processed_block_text.split('\n')
+		self.process_block_text = self.process_block_text(block_text)
+		block_lines = self.process_block_text.split('\n')
 
 		# Get or create the page UID
 		page_uid = self.get_or_create_page_uid(page)
@@ -388,39 +326,44 @@ class RoamAPI:
 		print("Max retries reached. Failed to get last block UID.")
 		return None
 
-# 	def add_nested_blocks(self, parent_uid, blocks, order='last'):
-# 		"""
-# 		Add nested blocks to a page or another block.
-#
-# 		:param parent_uid: UID of the parent page or block
-# 		:param blocks: List of dictionaries, each containing 'string' and optional 'children'
-# 		:param order: Where to add the blocks ('first', 'last', or a number)
-# 		:return: Boolean indicating success
-# 		"""
-# 		try:
-# 			for block in blocks:
-# 				# Create the main block
-# 				success = self.add_block(parent_uid, block['string'], order)
-# 				if not success:
-# 					return False
-#
-# 				# Get the UID of the newly created block
-# 				new_block_uid = self.get_last_block_uid(parent_uid)
-#
-# 				# If this block has children, recursively add them
-# 				if 'children' in block and block['children']:
-# 					if not self.add_nested_blocks(new_block_uid, block['children']):
-# 						return False
-#
-# 			return True
-# 		except Exception as e:
-# 			print(f"Error adding nested blocks: {str(e)}")
-# 			return False
+	def create_block_with_children(self, parent_uid, block):
+		content = block.get('content', '')
+		logging.debug(f"Creating block: {content[:50]}...")
+		if content.strip():
+			block_data = {
+				"location": {"parent-uid": parent_uid, "order": "last"},
+				"block": {"string": content.strip()}
+			}
+			result = self._make_api_call(create_block, self.client, block_data)
+			if result is None:
+				logging.error(f"Failed to create block: {content[:50]}...")
+				return None
 
-	def get_page_uid(self, page_title):
-		"""Get the UID of a page by its title."""
-		query = f'[:find ?uid . :where [?e :node/title "{page_title}"] [?e :block/uid ?uid]]'
-		return q(self.client, query)
+			new_block_uid = self.get_last_block_uid(parent_uid)
+			if new_block_uid:
+				for child in block.get('children', []):
+					self.create_block_with_children(new_block_uid, child)
+			return new_block_uid
+		else:
+			logging.warning(f"Skipping empty block")
+			return None
+
+	def batch_create_blocks(self, parent_uid, blocks):
+		logging.info(f"Starting batch_create_blocks with {len(blocks)} blocks")
+		for i, block in enumerate(blocks, 1):
+			logging.info(f"Processing block {i}/{len(blocks)}")
+			result = self.create_block_with_children(parent_uid, block)
+			if result is None:
+				logging.warning(f"Failed to create block {i}, retrying...")
+				retry_count = 0
+				while result is None and retry_count < 3:
+					retry_count += 1
+					time.sleep(random.uniform(1, 3))  # Random delay between 1-3 seconds
+					result = self.create_block_with_children(parent_uid, block)
+				if result is None:
+					logging.error(f"Failed to create block {i} after 3 retries")
+			time.sleep(0.5)  # Reduced delay between blocks
+		logging.info("Finished batch_create_blocks")
 
 	def get_block_uids(self, page_title):
 		"""Get the UIDs of all blocks on a page."""
@@ -445,7 +388,7 @@ class RoamAPI:
 		else:
 			logging.debug(f"Parent block not found. Creating new parent block.")
 			# If parent block doesn't exist, create it
-			success = self.add_block(page_uid, parent_text)
+			success = self.add_block_with_retry(page_uid, parent_text)
 			if success:
 				# We need to query for the UID of the block we just created
 				new_query = f'[:find (pull ?b [:block/uid]) . :where [?b :block/page ?p] [?p :block/uid "{page_uid}"] [?b :block/string "{parent_text}"]]'
@@ -463,6 +406,25 @@ class RoamAPI:
 
 	# Other Definitions ---------------------------------------------
 
+	def _make_api_call(self, func, *args, **kwargs):
+		max_retries = 5
+		base_delay = 1
+		for attempt in range(max_retries):
+			try:
+				result = func(*args, **kwargs)
+				self.__last_request_time = time.time()
+				return result
+			except Exception as e:
+				if "Error (HTTP 503)" in str(e):
+					delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+					logging.warning(f"Rate limit hit. Retrying in {delay:.2f} seconds...")
+					time.sleep(delay)
+				else:
+					logging.error(f"Error in API call: {str(e)}")
+					return None
+		logging.error("Max retries reached. Failed to make API call.")
+		return None
+
 	def get_graph_structure(self):
 		"""Get a high-level structure of the graph (pages and their immediate children)."""
 		query = '[:find (pull ?e [:node/title {:block/children [:block/string]}]) :where [?e :node/title]]'
@@ -474,17 +436,17 @@ class RoamAPI:
 		today = datetime.datetime.now()
 		if query == "today":
 			# Default to today's daily page
-			query = get_roam_date_format(today)
+			query = self.get_roam_date_format(today)
 		elif query == "yesterday":
 			yesterday = today - datetime.timedelta(days=1)
-			query = get_roam_date_format(yesterday)
+			query = self.get_roam_date_format(yesterday)
 		elif query == "lastweek":
 			lastweek = today - datetime.timedelta(days=7)
-			query = get_roam_date_format(lastweek)
+			query = self.get_roam_date_format(lastweek)
 		elif re.match(r'^\d{4}-\d{2}-\d{2}$', query):
 			# It's a date in YYYY-MM-DD format
 			date_obj = datetime.datetime.strptime(query, "%Y-%m-%d")
-			query = get_roam_date_format(date_obj)
+			query = self.get_roam_date_format(date_obj)
 
 		# Search for the page
 		page_uid = self.get_page_uid(query)
@@ -515,24 +477,53 @@ class RoamAPI:
 			with open(file_path, 'r', encoding='utf-8') as file:
 				content = file.read()
 
+			# Split content into frontmatter and markdown
 			parts = content.split('---', 2)
-			if len(parts) < 3:
-				return False, "No valid YAML frontmatter found in the file"
 
-			metadata = yaml.safe_load(parts[1])
+			# Check if we have valid frontmatter
+			if len(parts) < 3:
+				logging.warning("No valid YAML frontmatter found. Treating entire content as markdown.")
+				metadata = {}
+				markdown_content = content
+			else:
+				# Parse YAML frontmatter
+				try:
+					metadata = yaml.safe_load(parts[1])
+					markdown_content = parts[2].strip()
+				except yaml.YAMLError as e:
+					logging.error(f"Error parsing YAML frontmatter: {e}")
+					metadata = {}
+					markdown_content = content
+
+			# Get or create title
 			title = metadata.get('title')
 			if not title:
-				return False, "No title found in YAML frontmatter"
+				logging.warning("No title found in frontmatter. Using filename as title.")
+				title = os.path.splitext(os.path.basename(file_path))[0]
 
 			page_uid = self.get_or_create_page_uid(title)
 			if not page_uid:
 				return False, f"Failed to create page: {title}"
 
-			blocks = parse_markdown(parts[2].strip())
+			# Handle tags if present in the metadata
+			tags = metadata.get('tags')
+			if tags:
+				if isinstance(tags, list):
+					tag_string = ' '.join([f"#{tag}" for tag in tags])
+				elif isinstance(tags, str):
+					tag_string = ' '.join([f"#{tag.strip()}" for tag in tags.split(',')])
+				else:
+					tag_string = ""
+
+				if tag_string:
+					self.create_block_with_children(page_uid, {'content': tag_string})
+
+			blocks = self.parse_markdown(markdown_content)
 			self.batch_create_blocks(page_uid, blocks)
 
 			return True, f"Successfully imported to page: {title}"
 		except Exception as e:
+			logging.error(f"Error importing file: {str(e)}", exc_info=True)
 			return False, f"Error importing file: {str(e)}"
 
 # Example usage
@@ -549,8 +540,8 @@ if __name__ == "__main__":
 	# Example: Create a page and add some blocks
 	page_title = "API Test Page " + time.strftime("%Y%m%d%H%M%S")
 	roam.create_page(page_title)
-	roam.add_block(page_title, "This is a test block")
-	roam.add_block(page_title, "This is another test block")
+	roam.add_block_with_retry(page_title, "This is a test block")
+	roam.add_block_with_retry(page_title, "This is another test block")
 
 	# Get and print page content
 	page_uid = roam.get_page_uid(page_title)
